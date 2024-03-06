@@ -26,13 +26,32 @@ pip install ChatGPTAutomation
 
 ### Setup
 
+### Get the `user-data-dir` and `profile`
+
+To easily authenticate to the ChatGPT account, the `user-data-dir` (path where all the user profiles are located) and `profile` (path where user data like cookies, extensions, etc are stored) is required. To obtain them:
+
+1. Open the Chrome browser and type `chrome://version` in the search bar, after that, hit enter.
+2. Search for the `Profile Path` entry. It should look something similar to `/Users/YourUserName/Library/Application Support/Google/Chrome/
+
+Default`.
+3. The `user-data-dir` is the whole `Profile Path` up to the penultimate directory: `/Users/YourUserName/Library/Application Support/Google/Chrome/`.
+4. The `profile` is the last directory: `Default`.
+
+### Install the library locally.
+
+Install the library using `pip install -e .` in the root directory.
+
+
 #### Automatic setup (without paths):
 ```python
 from chatgpt_automation.chatgpt_automation import ChatGPTAutomation
 
 chat_bot = ChatGPTAutomation(
-    username="<your username here>", # Optional
-    password="<your password here>"  # Optional
+    user_data={
+        "path": "Users/YourUserName/Library/Application\ Support/Google/Chrome/", # Escape any spaces in the path.
+        "profile": "Default",
+    }
+
 )
 ```
 
@@ -43,12 +62,18 @@ from chatgpt_automation.chatgpt_automation import ChatGPTAutomation
 chat_bot = ChatGPTAutomation(
     chrome_path="path/to/chrome.exe", 
     chrome_driver_path="path/to/chromedriver.exe",
-    username="<your username here>", # Optional
-    password="<your password here>"  # Optional
+    user_data={
+        "path": "Users/YourUserName/Library/Application\ Support/Google/Chrome/", # Escape any spaces in the path.
+        "profile": "Default",
+    }
 )
 
 # Send prompt
 chat_bot.send_prompt_to_chatgpt("Hello, ChatGPT!")
+
+# Wait for the response
+while not chat_bot.check_response_status():
+    pass
 
 # Save conversation
 chat_bot.save_conversation("conversation.txt")
@@ -71,6 +96,9 @@ else:
 ### Get last response
 ```python
 chat_bot.send_prompt_to_chatgpt("Hello, ChatGPT!")
+# Wait for the response
+while not chat_bot.check_response_status():
+    pass
 response = chat_bot.return_last_response()
 ```
 
@@ -84,29 +112,6 @@ chat_bot.switch_model(4)
 if chat_bot.check_login_page():
     chat_bot.login()
 ```
-
-### Login with Gmail
-
-The `gmail_login_setup` function in `ChatGPTAutomation` allows you to automate the process of logging into ChatGPT using a Gmail account.
-
-#### Automatic Gmail Login
-To automatically log in using Gmail credentials, you can use the `gmail_login_setup` method. This method requires the email and password to be set either as parameters or within the class instance.
-
-```python
-# Automatic login using stored credentials
-chat_bot.gmail_login_setup()
-
-# Alternatively, specify the credentials directly
-chat_bot.gmail_login_setup(email="your.email@gmail.com", password="yourpassword")
-```
-
-#### Login with google
-if you logged in to the google account but logged out from openai account can use this function for login with that gmail
-```python
-chat_bot.login_using_gamil("iamseyedalipro@gmail.com") #this is optional you can set the email first of setup on username field
-```
-
-
 
 ---
 ## Delay Configurations
