@@ -3,6 +3,7 @@ from selenium.webdriver.common.keys import Keys
 import time
 import socket
 import threading
+import uuid
 import os
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,30 +16,37 @@ import logging
 import platform
 import pyperclip
 from webdriver_manager.chrome import ChromeDriverManager
+
 # Configure logging
-logging.basicConfig(filename='chatgpt_automation.log', level=logging.INFO,
-                    format='%(asctime)s:%(levelname)s:%(message)s')
+logging.basicConfig(
+    filename="chatgpt_automation.log",
+    level=logging.INFO,
+    format="%(asctime)s:%(levelname)s:%(message)s",
+)
 
 
 class ChatGPTLocators:
-    MSG_BOX_INPUT = (By.CSS_SELECTOR, 'textarea#prompt-textarea')
-    MSG_BOX_INPUT2 = (By.TAG_NAME, 'textarea')
+    MSG_BOX_INPUT = (By.CSS_SELECTOR, "textarea#prompt-textarea")
+    MSG_BOX_INPUT2 = (By.TAG_NAME, "textarea")
 
     SEND_MSG_BTN = (By.CSS_SELECTOR, 'button[data-testid="send-button"]')
 
-    GPT4_FILE_INPUT = (By.CSS_SELECTOR, 'input.hidden')
+    GPT4_FILE_INPUT = (By.CSS_SELECTOR, "input.hidden")
 
-    CHAT_GPT_CONVERSION = (By.CSS_SELECTOR, 'div.text-base')
+    CHAT_GPT_CONVERSION = (By.CSS_SELECTOR, "div.text-base")
     REGENERATE_BTN = (By.CSS_SELECTOR, 'button[as="button"]')
 
     FIRST_DELETE_BTN = (By.CSS_SELECTOR, 'button[data-state="closed"]')
     SECOND_DELETE_BTN = (By.CSS_SELECTOR, 'div[role="menuitem"].text-red-500')
     THIRD_DELETE_BTN = (By.CSS_SELECTOR, 'button.btn.btn-danger[as="button"]')
 
-    RECYCLE_BTN = (By.CSS_SELECTOR, 'button.p-1.hover\:text-token-text-primary:nth-child(2)')
-    DELETE_CONFIRM_BTN = (By.CSS_SELECTOR, 'button.btn.relative.btn-danger')
+    RECYCLE_BTN = (
+        By.CSS_SELECTOR,
+        "button.p-1.hover\:text-token-text-primary:nth-child(2)",
+    )
+    DELETE_CONFIRM_BTN = (By.CSS_SELECTOR, "button.btn.relative.btn-danger")
 
-    NEW_CHAT_BTN = (By.CSS_SELECTOR, 'button.text-token-text-primary')
+    NEW_CHAT_BTN = (By.CSS_SELECTOR, "button.text-token-text-primary")
 
     LOGIN_BTN = (By.XPATH, '//button[//div[text()="Log in"]]')
     CONTINUE_BTN = (By.XPATH, '//button[text()="Continue"]')
@@ -49,22 +57,29 @@ class ChatGPTLocators:
     CHAT_GPT_SWITCH_TO_4 = (By.XPATH, '//div[contains(text(), "GPT-4")]')
     CHAT_GPT_SWITCH_TO_3 = (By.XPATH, '//div[contains(text(), "GPT-3.5")]')
     UPGRADE_TO_PLUS_BTN = (By.XPATH, '//div[contains(text(), "Upgrade to Plus")]')
-    
-    COPY_LAST_RESPONSE_BTN = (By.CSS_SELECTOR, '.final-completion > div:nth-child(2) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > button:nth-child(1)')
 
-    LOGIN_WITH_GMAIL_BTN = (By.CSS_SELECTOR, 'form[data-provider="google"] button[data-provider="google"]')
+    COPY_LAST_RESPONSE_BTN = (
+        By.CSS_SELECTOR,
+        ".final-completion > div:nth-child(2) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > button:nth-child(1)",
+    )
+
+    LOGIN_WITH_GMAIL_BTN = (
+        By.CSS_SELECTOR,
+        'form[data-provider="google"] button[data-provider="google"]',
+    )
     GMAIL_BTN = (By.XPATH, '//div[@data-email="{}"]')
 
     GMAIL_INPUT = (By.CSS_SELECTOR, 'input[type="email"][id="identifierId"]')
-    GMAIL_NEXT_BTN = (By.ID, 'identifierNext')
+    GMAIL_NEXT_BTN = (By.ID, "identifierNext")
     GMAIL_PASSWORD_INPUT = (By.CSS_SELECTOR, 'input[type="password"][name="password"]')
-    GMAIL_PASSWORD_NEXT_BTN = (By.ID, 'passwordNext')
+    GMAIL_PASSWORD_NEXT_BTN = (By.ID, "passwordNext")
     ADD_NEW_GMAIL_BTN = (By.XPATH, '//li[contains(.,"Use another account")]')
+
 
 class ChatGPTAutomation:
     class DelayTimes:
         CONSTRUCTOR_DELAY = 6
-        SEND_PROMPT_DELAY = 20
+        SEND_PROMPT_DELAY = 0
         UPLOAD_FILE_DELAY = 10
         RETURN_LAST_RESPONSE_DELAY = 2
         OPEN_NEW_CHAT_DELAY = 10
@@ -79,43 +94,48 @@ class ChatGPTAutomation:
         GMAIL_NEXT_CLICK_DELAY = 5
         GMAIL_PASSWORD_NEXT_CLICK_DELAY = 11
 
-
-    def __init__(self, chrome_path=None, chrome_driver_path=None, username: str = None, password: str=None):
+    def __init__(
+        self,
+        user_data,
+        chrome_path=None,
+        chrome_driver_path=None,
+    ):
         """
         This constructor automates the following steps:
         1. Open a Chrome browser with remote debugging enabled at a specified URL.
         2. Prompt the user to complete the log-in/registration/human verification, if required.
         3. Connect a Selenium WebDriver to the browser instance after human verification is completed.
 
-        :param chrome_path: file path to chrome.exe (ex. C:\\Users\\User\\...\\chromedriver.exe)
-        :param chrome_driver_path: file path to chrome.exe (ex. C:\\Users\\User\\...\\chromedriver.exe)
+        :param user_data: Dictionary containing the path of all the user profiles and the profile to use in the chrome session.
+        :param chrome_path: file path to chrome
+        :param chrome_driver_path: file path to chrome
         """
         self.lock = threading.Lock()
-        user_data_dir = r'--user-data-dir=C:\path\to\custom\user\data\directory'
         if chrome_path is None:
             chrome_path = self.get_chrome_path()
             if chrome_path is None:
-                raise FileNotFoundError("Unable to automatically find the Chrome path. "
-                                "Please provide the path to the Chrome executable.")
+                raise FileNotFoundError(
+                    "Unable to automatically find the Chrome path. "
+                    "Please provide the path to the Chrome executable."
+                )
 
         if chrome_driver_path is None:
             try:
                 chrome_driver_path = ChromeDriverManager().install()
             except Exception as e:
-                raise RuntimeError(f"An unexpected error occurred while installing ChromeDriver: {e}")
+                raise RuntimeError(
+                    f"An unexpected error occurred while installing ChromeDriver: {e}"
+                )
 
-        chrome_path = f'"{chrome_path}" {user_data_dir}'
-        self.chrome_path = chrome_path
+        self.chrome_path = f'"{chrome_path}"'
         self.chrome_driver_path = chrome_driver_path
+        self.user_data = user_data
 
         self.url = r"https://chat.openai.com"
         free_port = self.find_available_port()
         self.launch_chrome_with_remote_debugging(free_port, self.url)
         # self.wait_for_human_verification()
         self.driver = self.setup_webdriver(free_port)
-
-        self.username = username
-        self.password = password
 
         time.sleep(self.DelayTimes.CONSTRUCTOR_DELAY)
 
@@ -127,53 +147,6 @@ class ChatGPTAutomation:
         """
         return bool(self.driver.find_elements(*ChatGPTLocators.LOGIN_BTN))
 
-    def login_using_gamil(self, email: str = None ):
-        if email is None:
-            if self.username is None:
-                raise Exception("You must pass the email in username field when you create the class")
-            else:
-                email = self.username
-
-        login_btn = self.driver.find_element(*ChatGPTLocators.LOGIN_BTN)
-        login_btn.click()
-
-        time.sleep(self.DelayTimes.AFTER_LOGIN_CLICK_DELAY)
-
-        gmail_login_btn = self.driver.find_element(*ChatGPTLocators.LOGIN_WITH_GMAIL_BTN)
-        gmail_login_btn.click()
-
-        time.sleep(self.DelayTimes.LOGIN_USING_GMAIL_CLICK_DELAY)
-
-        gmail_btn = self.driver.find_element(ChatGPTLocators.GMAIL_BTN[0], ChatGPTLocators.GMAIL_BTN[1].format(email))
-        gmail_btn.click()
-
-        time.sleep(self.DelayTimes.GMAIL_SELECT_DELAY)
-
-
-
-
-    def login(self, username: str = None, password: str = None):
-        if username is None:
-            if self.username is None or self.password is None:
-                raise Exception("You must pass the username and password in the first step of creating the class or pass them when calling the function.")
-            else:
-                username = self.username
-                password = self.password
-
-        login_btn = self.driver.find_element(*ChatGPTLocators.LOGIN_BTN)
-        login_btn.click()
-
-        WebDriverWait(self.driver, 10).until(
-            EC.visibility_of_element_located(ChatGPTLocators.USERNAME_INPUT)
-        ).send_keys(username)
-
-        self.driver.find_element(*ChatGPTLocators.CONTINUE_BTN).click()
-
-        pass_input = WebDriverWait(self.driver, 10).until(
-            EC.visibility_of_element_located(ChatGPTLocators.PASSWORD_INPUT)
-        )
-        pass_input.send_keys(password)
-        pass_input.send_keys(Keys.ENTER)
 
     def find_available_port(self):
         """
@@ -192,7 +165,7 @@ class ChatGPTAutomation:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 # Bind the socket to any available address on the machine ('') and port 0
                 # The OS will then automatically assign an available ephemeral port
-                s.bind(('', 0))
+                s.bind(("", 0))
 
                 # Set socket options - SO_REUSEADDR allows the socket to be bound to an address
                 # that is already in use, which is useful for avoiding socket errors
@@ -230,13 +203,15 @@ class ChatGPTAutomation:
         def open_chrome():
             try:
                 # Construct the command to launch Chrome with specified debugging port and URL
-                chrome_cmd = f"{self.chrome_path} --remote-debugging-port={port} --user-data-dir=remote-profile {url}"
+                chrome_cmd = f"{self.chrome_path} --remote-debugging-port={port} --user-data-dir={self.user_data['path']} --profile-directory={self.user_data['profile']} {url}"
                 # Execute the command in the system shell
                 os.system(chrome_cmd)
             except Exception as e:
                 # Log and raise an exception if there's an error in launching Chrome
                 logging.error(f"Failed to launch Chrome: {e}")
-                raise RuntimeError(f"Failed to launch Chrome with remote debugging: {e}")
+                raise RuntimeError(
+                    f"Failed to launch Chrome with remote debugging: {e}"
+                )
 
         try:
             # Create a new thread to run the Chrome launch command
@@ -268,7 +243,14 @@ class ChatGPTAutomation:
             # Setting up Chrome options for WebDriver
             chrome_options = webdriver.ChromeOptions()
             # Specifying the address for the remote debugging
-            chrome_options.add_experimental_option("debuggerAddress", f"127.0.0.1:{port}")
+            chrome_options.add_experimental_option(
+                "debuggerAddress", f"127.0.0.1:{port}"
+            )
+            if self.user_data:
+                chrome_options.add_argument(f"--user-data-dir={self.user_data['path']}")
+                chrome_options.add_argument(
+                    f"--profile-directory={self.user_data['profile']}"
+                )
             # Initializing the Chrome WebDriver with the specified options
             driver = webdriver.Chrome(self.chrome_driver_path, options=chrome_options)
             return driver
@@ -293,7 +275,11 @@ class ChatGPTAutomation:
         try:
             # Locate the input box element on the webpage
             input_box = self.driver.find_element(*ChatGPTLocators.MSG_BOX_INPUT)
-            self.driver.execute_script("arguments[0].value = arguments[1];", input_box, prompt)
+            self.uuid = uuid.uuid4()
+            unique_message_prompt = f"Do not respond or mention this sentence, respond and only respont to the following one after the dot, you must add the following uuid to the end of the message {self.uuid} and make sure, no matter what, the uuid is the last thing you print in the message. {prompt}"
+            self.driver.execute_script(
+                "arguments[0].value = arguments[1];", input_box, unique_message_prompt
+            )
             # Simulate the key press action to send the prompt
             input_box.send_keys(Keys.RETURN)
             # Locate and click the send button to submit the prompt
@@ -305,7 +291,9 @@ class ChatGPTAutomation:
             if self.check_message_sent():
                 return
             else:
-                logging.ERROR("Send message button does not found. if you see this error please create an issue in github!")
+                logging.ERROR(
+                    "Send message button does not found. if you see this error please create an issue in github!"
+                )
                 raise
         except Exception as e:
             # Log the exception if any step in the process fails
@@ -371,7 +359,7 @@ class ChatGPTAutomation:
         del elements[::2]
         chat_texts = [element.text for element in elements]
         return chat_texts
-        
+
     def save_conversation(self, file_name):
         """
         Saves the entire conversation from the ChatGPT interface into a text file. The conversation is formatted
@@ -424,22 +412,26 @@ class ChatGPTAutomation:
         """
 
         try:
-            response = self.driver.find_elements(*ChatGPTLocators.CHAT_GPT_CONVERSION)[-1]
+            response = self.driver.find_elements(*ChatGPTLocators.CHAT_GPT_CONVERSION)[
+                -1
+            ]
 
             return response.text
 
         except NoSuchElementException:
             # Handle the case where the element is not found
-            logging.error('Element not found in return_last_response')
+            logging.error("Element not found in return_last_response")
             return "Element not found."
         except Exception as e:
             # Handle any other exceptions
-            logging.error(f'Unexpected error in return_last_response: {str(e)}')
+            logging.error(f"Unexpected error in return_last_response: {str(e)}")
             return f"An unexpected error occurred: {str(e)}"
-    
+
     def return_last_response_md(self):
         try:
-            copy_btns = self.driver.find_elements(*ChatGPTLocators.COPY_LAST_RESPONSE_BTN)
+            copy_btns = self.driver.find_elements(
+                *ChatGPTLocators.COPY_LAST_RESPONSE_BTN
+            )
             if copy_btns:
                 copy_btns[0].click()
                 time.sleep(self.DelayTimes.RETURN_LAST_RESPONSE_DELAY)
@@ -451,7 +443,6 @@ class ChatGPTAutomation:
         except Exception as e:
             logging.error(f"Unexpected error in return_last_response_md: {str(e)}")
             return f"An unexpected error occurred: {str(e)}"
-
 
     def wait_for_human_verification(self):
         """
@@ -466,26 +457,33 @@ class ChatGPTAutomation:
             SystemExit: If an unrecoverable input error occurs, indicating a problem with the system or environment.
         """
         with self.lock:
-            print("You need to manually complete the log-in or the human verification if required.")
+            print(
+                "You need to manually complete the log-in or the human verification if required."
+            )
 
             while True:
                 try:
                     user_input = input(
-                        "Enter 'y' if you have completed the log-in or the human verification, or 'n' to check again: ").lower()
+                        "Enter 'y' if you have completed the log-in or the human verification, or 'n' to check again: "
+                    ).lower()
                 except EOFError:
                     # Print error message and exit the program in case of an End-Of-File condition on input
                     print("Error reading input. Exiting the program.")
-                    raise SystemExit("Failed to read user input.")  # Exiting the program due to input error
+                    raise SystemExit(
+                        "Failed to read user input."
+                    )  # Exiting the program due to input error
 
                 # Check the user's input and act accordingly
-                if user_input == 'y':
+                if user_input == "y":
                     print("Continuing with the automation process...")
                     break  # Break the loop to continue with automation
-                elif user_input == 'n':
+                elif user_input == "n":
                     print("Waiting for you to complete the human verification...")
                     time.sleep(5)  # Waiting for a specified time before asking again
                 else:
-                    print("Invalid input. Please enter 'y' or 'n'.")  # Handle invalid input
+                    print(
+                        "Invalid input. Please enter 'y' or 'n'."
+                    )  # Handle invalid input
 
     def write_last_answer_custom_file(self, filename):
         """
@@ -557,25 +555,44 @@ class ChatGPTAutomation:
         try:
             # Wait and click the first delete button
             del_chat_btn1 = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((ChatGPTLocators.FIRST_DELETE_BTN[0], ChatGPTLocators.FIRST_DELETE_BTN[1]))
+                EC.element_to_be_clickable(
+                    (
+                        ChatGPTLocators.FIRST_DELETE_BTN[0],
+                        ChatGPTLocators.FIRST_DELETE_BTN[1],
+                    )
+                )
             )
             del_chat_btn1.click()
-            time.sleep(self.DelayTimes.DEL_CURRENT_CHAT_OPEN_MENU_DELAY)  # Wait for UI response
+            time.sleep(
+                self.DelayTimes.DEL_CURRENT_CHAT_OPEN_MENU_DELAY
+            )  # Wait for UI response
 
             # Wait and click the second delete button
             del_chat_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((ChatGPTLocators.SECOND_DELETE_BTN[0], ChatGPTLocators.SECOND_DELETE_BTN[1]))
+                EC.element_to_be_clickable(
+                    (
+                        ChatGPTLocators.SECOND_DELETE_BTN[0],
+                        ChatGPTLocators.SECOND_DELETE_BTN[1],
+                    )
+                )
             )
             del_chat_btn.click()
 
             # Wait and click the third delete button to confirm deletion
             del_chat_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((ChatGPTLocators.THIRD_DELETE_BTN[0], ChatGPTLocators.THIRD_DELETE_BTN[1]))
+                EC.element_to_be_clickable(
+                    (
+                        ChatGPTLocators.THIRD_DELETE_BTN[0],
+                        ChatGPTLocators.THIRD_DELETE_BTN[1],
+                    )
+                )
             )
             del_chat_btn.click()
 
             print("Current chat deleted")
-            time.sleep(self.DelayTimes.DEL_CURRENT_CHAT_AFTER_DELETE_DELAY)  # Wait for the chat to be completely deleted
+            time.sleep(
+                self.DelayTimes.DEL_CURRENT_CHAT_AFTER_DELETE_DELAY
+            )  # Wait for the chat to be completely deleted
 
         except TimeoutException:
             # Handle timeout exception when elements are not found within the specified time
@@ -584,7 +601,9 @@ class ChatGPTAutomation:
                 self.open_new_chat()
             except Exception as e:
                 logging.error(f"Failed to open new chat after timeout: {e}")
-                raise WebDriverException(f"Error navigating to start a new chat after timeout: {e}")
+                raise WebDriverException(
+                    f"Error navigating to start a new chat after timeout: {e}"
+                )
 
         except Exception as e:
             # Handle any other exceptions that might occur
@@ -594,7 +613,9 @@ class ChatGPTAutomation:
                 self.open_new_chat()
             except Exception as e:
                 logging.error(f"Failed to open new chat after error: {e}")
-                raise WebDriverException(f"Error navigating to start a new chat after deletion error: {e}")
+                raise WebDriverException(
+                    f"Error navigating to start a new chat after deletion error: {e}"
+                )
 
     def check_error(self, regenerate=False):
         """
@@ -609,8 +630,10 @@ class ChatGPTAutomation:
         """
         try:
             # Locate the error message element using XPath
-            error_element = self.driver.find_element(By.XPATH,
-                                                     "//div[@class='mb-3 text-center text-xs' and text()='There was an error generating a response']")
+            error_element = self.driver.find_element(
+                By.XPATH,
+                "//div[@class='mb-3 text-center text-xs' and text()='There was an error generating a response']",
+            )
             logging.info("Error detected: Responding error!")
 
             # Regenerate response if the flag is set
@@ -629,34 +652,46 @@ class ChatGPTAutomation:
 
     def check_response_status(self):
         """
-        Continuously checks the status of the response on the webpage.
+        Checks the status of the response on the webpage.
 
-        This method loops indefinitely, checking for two conditions:
+        This method checks for three conditions:
         1. If there is an error on the page, indicated by the check_error method.
         2. If the 'send' button is available, indicating that the response is ready to be sent.
+        3. That the uuid stored in the object is at the end of the response from ChatGPT
 
-        The method waits for a set interval before rechecking the conditions.
 
-        :return: False if an error is detected, True if the response is ready to be sent.
+        :return: False if an error is detected, True if the response is ready
         """
-        while True:
-            # Check for errors on the page
-            if self.check_error(False):
-                logging.info("Response Status: Error detected.")
-                return False
+        if self.check_error(False):
+            logging.info("Response Status: Error detected.")
+            return False
 
-            try:
-                # Check if the 'send' button is available, indicating the response is ready
-                self.driver.find_element(*ChatGPTLocators.SEND_MSG_BTN)
-                logging.info("Response Status: Ready to send.")
-                return True
-            except NoSuchElementException:
-                # If 'send' button is not found, continue the loop
-                pass
+        try:
+            # Check if the 'send' button is available, indicating the response is ready
+            self.driver.find_element(*ChatGPTLocators.SEND_MSG_BTN)
+            logging.info("Response Status: Ready to send.")
+        except NoSuchElementException:
+            return False
 
-            # Log and wait before checking again
-            logging.info("Responding...")
-            time.sleep(self.DelayTimes.CHECK_RESPONSE_STATUS_DELAY)
+        # Check that there is an answer for the last prompt sent
+        try:
+            response = self.driver.find_elements(*ChatGPTLocators.CHAT_GPT_CONVERSION)[
+                -1
+            ]
+
+            return response.text.endswith(str(self.uuid))
+
+        except NoSuchElementException:
+            # Handle the case where the element is not found
+            logging.error("Element not found in return_last_response")
+            return False
+        except Exception as e:
+            # Handle any other exceptions
+            logging.error(f"Unexpected error in return_last_response: {str(e)}")
+            return False
+
+        return True
+
 
     def switch_model(self, model_name: float):
         """
@@ -667,7 +702,9 @@ class ChatGPTAutomation:
         :return: None
         :raises: Exception if an unsupported model_name is provided.
         """
-        menu_element = self.driver.find_element(*ChatGPTLocators.CHATGPT_SWITCH_HOVER_BTN)
+        menu_element = self.driver.find_element(
+            *ChatGPTLocators.CHATGPT_SWITCH_HOVER_BTN
+        )
 
         # Hover over the menu to activate it
         menu_element.click()
@@ -684,38 +721,37 @@ class ChatGPTAutomation:
         elif model_name == 3:
             submenu_locator = ChatGPTLocators.CHAT_GPT_SWITCH_TO_3
         else:
-            raise Exception("To switch between models, you need to set the 'model_name' to 3.5 or 4")
+            raise Exception(
+                "To switch between models, you need to set the 'model_name' to 3.5 or 4"
+            )
 
-
-        
-        submenu_element = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located(submenu_locator))
+        submenu_element = WebDriverWait(self.driver, 10).until(
+            EC.visibility_of_element_located(submenu_locator)
+        )
 
         # Click on the submenu item
         submenu_element.click()
-    
+
     @staticmethod
     def get_chrome_path() -> str:
         try:
-            if platform.system() == 'Windows':
+            if platform.system() == "Windows":
                 paths = [
-                    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-                    r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+                    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                     # Add any other common paths if necessary
                 ]
                 for path in paths:
                     if os.path.isfile(path):
                         return path
 
-            elif platform.system() == 'Darwin':  # macOS
-                path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+            elif platform.system() == "Darwin":  # macOS
+                path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
                 if os.path.isfile(path):
                     return path
 
-            elif platform.system() == 'Linux':
-                paths = [
-                    '/usr/bin/google-chrome',
-                    '/usr/local/bin/google-chrome'
-                ]
+            elif platform.system() == "Linux":
+                paths = ["/usr/bin/google-chrome", "/usr/local/bin/google-chrome"]
                 for path in paths:
                     if os.path.isfile(path):
                         return path
@@ -729,27 +765,7 @@ class ChatGPTAutomation:
 
         return None
 
-    # def check_verify_page(self):
-    #     try:
-    #         element = self.driver.find_element(By.XPATH, f'//*[contains(text(), "Verify you are human")]')
-    #         return True
-    #     except NoSuchElementException:
-    #         return False
-    #     except Exception as e:
-    #         logging.error(f"unexpected error: {e}")
-    #         raise Exception(e)
 
-    # def pass_verify(self):
-    #     try:
-    #         checkbox = driver.find_element(By.CSS_SELECTOR, 'input[type="checkbox"]')
-    #         if not checkbox.is_selected():
-    #             checkbox.click()
-            
-    #         time.sleep(15)
-    #     except NoSuchElementException:
-    #         logging.error("Check Box for human verify doesn't find!")
-    #         raise Exception("Check Box for human verify doesn't find!")
-        
     def quit(self):
         """
         Closes the browser and terminates the WebDriver session.
@@ -765,96 +781,9 @@ class ChatGPTAutomation:
 
             # Terminate the WebDriver session
             self.driver.quit()
-            logging.info("Browser closed successfully and WebDriver session terminated.")
+            logging.info(
+                "Browser closed successfully and WebDriver session terminated."
+            )
         except Exception as e:
             # Log any exceptions that occur during the quit process
             logging.error(f"An error occurred while closing the browser: {e}")
-
-
-    def gmail_login_setup(self, email: str = None, password: str=None):
-        """
-        Automates the Gmail login process within the ChatGPT web interface using Selenium WebDriver. This method handles the
-        authentication process by entering provided Gmail credentials or using those stored in the class instance.
-
-        The function follows a specific sequence of steps to navigate through the ChatGPT login interface and to input the 
-        Gmail credentials. If two-factor authentication (2FA) or human verification is required, the function prompts the 
-        user to complete these steps manually.
-
-        Args:
-            email (str, optional): The email address for the Gmail account. If not provided, the class instance's email is used.
-            password (str, optional): The password for the Gmail account. If not provided, the class instance's password is used.
-
-        Workflow:
-        1. Validates the presence of email and password.
-        2. Navigates through the ChatGPT login interface, clicking relevant buttons to reach the Gmail login section.
-        3. Enters the email and password into the Gmail login form.
-        4. Handles additional steps such as 2FA or human verification if they are triggered during login.
-
-        Raises:
-            Exception: If neither email nor password is provided either through function arguments or stored in the class instance.
-
-        Note:
-        - This function assumes that the WebDriver (`self.driver`) and specific locators (`ChatGPTLocators`) are already initialized.
-        - The user may need to manually complete 2FA or human verification steps if they are prompted by Gmail.
-        """
-        if (email is None or password is None) and (self.username is None or self.password is None):
-            raise Exception("you must pass email and password in function params or when you create the class...")
-        elif (email is None or password is None) and (self.username is not None or self.password is not None):
-            email = self.username
-            password = self.password
-        
-        login_btn = self.driver.find_element(*ChatGPTLocators.LOGIN_BTN)
-        login_btn.click()
-
-        time.sleep(self.DelayTimes.AFTER_LOGIN_CLICK_DELAY)
-
-        gmail_login_btn = self.driver.find_element(*ChatGPTLocators.LOGIN_WITH_GMAIL_BTN)
-        gmail_login_btn.click()
-
-        time.sleep(self.DelayTimes.LOGIN_USING_GMAIL_CLICK_DELAY)
-
-        add_gmail_btn = self.driver.find_element(*ChatGPTLocators.ADD_NEW_GMAIL_BTN)
-        add_gmail_btn.click()
-
-        time.sleep(self.DelayTimes.ADD_GMAIL_CLICK_DELAY)
-
-        gmail_input = self.driver.find_element(*ChatGPTLocators.GMAIL_INPUT)
-        gmail_input.send_keys(email)
-
-        next_btn = self.driver.find_element(*ChatGPTLocators.GMAIL_NEXT_BTN)
-        next_btn.click()
-
-        time.sleep(self.DelayTimes.GMAIL_NEXT_CLICK_DELAY)
-
-        password_input = self.driver.find_element(*ChatGPTLocators.GMAIL_PASSWORD_INPUT)
-        password_input.send_keys(password)
-
-        next_btn = self.driver.find_element(*ChatGPTLocators.GMAIL_PASSWORD_NEXT_BTN)
-        next_btn.click()
-
-        time.sleep(self.DelayTimes.GMAIL_PASSWORD_NEXT_CLICK_DELAY)
-
-        try:
-            self.driver.find_element(*ChatGPTLocators.MSG_BOX_INPUT)
-            print("Login completed!")
-        except:
-            print("you need manually complete the 2FA or human verification...")
-            with self.lock:
-                while True:
-                    try:
-                        user_input = input(
-                            "Enter 'y' if you have completed the log-in or the human verification, or 'n' to check again: ").lower()
-                    except EOFError:
-                        # Print error message and exit the program in case of an End-Of-File condition on input
-                        print("Error reading input. Exiting the program.")
-                        raise SystemExit("Failed to read user input.")  # Exiting the program due to input error
-
-                    # Check the user's input and act accordingly
-                    if user_input == 'y':
-                        print("Authentication Completed!\nContinuing with the automation process...")
-                        break  # Break the loop to continue with automation
-                    elif user_input == 'n':
-                        print("Waiting for you to complete the human verification...")
-                        time.sleep(5)  # Waiting for a specified time before asking again
-                    else:
-                        print("Invalid input. Please enter 'y' or 'n'.")  # Handle invalid input
